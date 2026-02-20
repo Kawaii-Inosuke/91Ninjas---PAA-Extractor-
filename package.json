@@ -1,0 +1,27 @@
+{
+  "name": "paa-extractor",
+  "version": "1.0.0",
+  "description": "Extract Google People Also Ask (PAA) questions using SerpAPI",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "serve": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "paa",
+    "serpapi",
+    "google",
+    "people-also-ask",
+    "seo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "googleapis": "^171.4.0"
+  }
+}
