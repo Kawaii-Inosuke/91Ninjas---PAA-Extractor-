@@ -59,6 +59,10 @@ app.post("/api/paa", async (req, res) => {
 
 // ─── Start ──────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-    console.log(`\n🚀  PAA Extractor running at http://localhost:${PORT}\n`);
-});
+if (process.env.NODE_ENV !== "production") {
+    app.listen(PORT, () => {
+        console.log(`\n🚀  PAA Extractor running at http://localhost:${PORT}\n`);
+    });
+}
+
+export default app;
