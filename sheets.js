@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 
 /**
  * Get an authenticated Google Sheets client.
- * Tries credentials.json first (local dev), falls back to env var (Vercel).
+ * Tries credentials.json first (local dev), falls back to env vars (Vercel).
  */
 function getAuthClient() {
     const credPath = path.join(__dirname, "credentials.json");
@@ -29,20 +29,23 @@ function getAuthClient() {
         });
     }
 
-    // Option 2: Env var (base64-encoded JSON — for Vercel)
-    const credEnv = process.env.GOOGLE_CREDENTIALS;
-    if (credEnv) {
-        const credentials = JSON.parse(
-            Buffer.from(credEnv, "base64").toString("utf-8")
-        );
+    // Option 2: Env vars (Vercel deployment)
+    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+        // Handle escaped newlines properly on Vercel
+        const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+
         return new google.auth.GoogleAuth({
-            credentials,
+            credentials: {
+                client_email: process.env.GOOGLE_CLIENT_EMAIL,
+                private_key: privateKey,
+                project_id: process.env.GOOGLE_PROJECT_ID
+            },
             scopes: ["https://www.googleapis.com/auth/spreadsheets"],
         });
     }
 
     throw new Error(
-        "❌  No Google credentials found. Provide credentials.json or GOOGLE_CREDENTIALS env var."
+        "❌  No Google credentials found. Provide credentials.json locally, or GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY env vars."
     );
 }
 
