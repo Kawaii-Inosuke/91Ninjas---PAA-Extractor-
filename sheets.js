@@ -31,8 +31,10 @@ function getAuthClient() {
 
     // Option 2: Env vars (Vercel deployment)
     if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-        // Handle escaped newlines properly on Vercel
-        const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+        // Handle escaped newlines properly on Vercel and strip literal quotes
+        const privateKey = process.env.GOOGLE_PRIVATE_KEY
+            .replace(/^"|"$/g, "")
+            .replace(/\\n/g, '\n');
 
         return new google.auth.GoogleAuth({
             credentials: {
