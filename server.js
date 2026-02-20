@@ -6,8 +6,8 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getPAA } from "../paa.js";
-import { appendToSheet } from "../sheets.js";
+import { getPAA } from "./paa.js";
+import { appendToSheet } from "./sheets.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 // ─── Middleware ──────────────────────────────────────────────
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "public")));
 
 // ─── API Route ──────────────────────────────────────────────
 
@@ -57,8 +57,6 @@ app.post("/api/paa", async (req, res) => {
     }
 });
 
-import serverless from "serverless-http";
-
 // ─── Start ──────────────────────────────────────────────────
 
 if (process.env.NODE_ENV !== "production") {
@@ -67,4 +65,4 @@ if (process.env.NODE_ENV !== "production") {
     });
 }
 
-export const handler = serverless(app);
+export default app;
