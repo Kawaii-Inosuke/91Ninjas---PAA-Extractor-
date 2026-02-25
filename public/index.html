@@ -194,6 +194,35 @@
       color: #555;
     }
 
+    /* ── Keyword Group ────────────────────────────── */
+    .keyword-group {
+      margin-bottom: 24px;
+    }
+
+    .keyword-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .keyword-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .keyword-group-header h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .keyword-group-header .badge {
+      background: #ddd;
+    }
+
     .result-item {
       padding: 16px 0;
       border-bottom: 1px solid #eee;
@@ -264,8 +293,9 @@
     <!-- Form -->
     <div class="card">
       <div class="form-group">
-        <label for="keyword">Keyword *</label>
-        <input type="text" id="keyword" placeholder="e.g. best CRM software" />
+        <label for="keyword">Keywords * <span
+            style="font-weight:400;text-transform:none;color:#999">(comma-separated)</span></label>
+        <input type="text" id="keyword" placeholder="e.g. best CRM software, email marketing tools" />
       </div>
       <div class="form-group">
         <label for="region">Region</label>
@@ -308,14 +338,17 @@
 
     // ── Main search handler ───────────────────────
     async function handleSearch() {
-      const keyword = document.getElementById("keyword").value.trim();
+      const keywordInput = document.getElementById("keyword").value.trim();
       const region = document.getElementById("region").value;
       const url = document.getElementById("url").value.trim();
 
-      if (!keyword) {
-        showToast("⚠️ Please enter a keyword.");
+      if (!keywordInput) {
+        showToast("⚠️ Please enter at least one keyword.");
         return;
       }
+
+      // Count keywords for progress display
+      const keywordCount = keywordInput.split(",").map(k => k.trim()).filter(Boolean).length;
 
       const btn = document.getElementById("searchBtn");
       const spinner = document.getElementById("spinner");
@@ -327,7 +360,9 @@
       // Loading state
       btn.disabled = true;
       spinner.classList.add("visible");
-      btnText.textContent = "Searching…";
+      btnText.textContent = keywordCount > 1
+        ? `Searching ${keywordCount} keywords…`
+        : "Searching…";
       container.style.display = "none";
       list.innerHTML = "";
 
@@ -335,7 +370,7 @@
         const res = await fetch("/api/paa", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keyword, region, url: url || undefined }),
+          body: JSON.stringify({ keyword: keywordInput, region, url: url || undefined }),
         });
 
         const data = await res.json();
@@ -348,31 +383,58 @@
           return;
         }
 
-        if (!data.results || data.results.length === 0) {
-          list.innerHTML = `<div class="message">No PAA questions found for "<strong>${escapeHtml(keyword)}</strong>".</div>`;
+        // Handle grouped results (multi-keyword response)
+        const grouped = data.grouped;
+        if (!grouped || Object.keys(grouped).length === 0) {
+          list.innerHTML = `<div class="message">No PAA questions found.</div>`;
           badge.textContent = "0 found";
           container.style.display = "block";
           showToast("ℹ️ No PAA questions found.");
           return;
         }
 
-        badge.textContent = `${data.count} found`;
+        badge.textContent = `${data.totalCount} found`;
 
-        data.results.forEach((item) => {
-          const div = document.createElement("div");
-          div.className = "result-item";
-          div.innerHTML = `
-            <div class="result-question">${escapeHtml(item.question)}</div>
-            <div class="result-answer">${escapeHtml(item.answer)}</div>
-            ${item.link ? `<div class="result-link"><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.link)}</a></div>` : ""}
+        // Render results grouped by keyword
+        for (const [kw, results] of Object.entries(grouped)) {
+          const group = document.createElement("div");
+          group.className = "keyword-group";
+
+          // Keyword sub-header
+          const header = document.createElement("div");
+          header.className = "keyword-group-header";
+          header.innerHTML = `
+            <h3>${escapeHtml(kw)}</h3>
+            <span class="badge">${results.length} questions</span>
           `;
-          list.appendChild(div);
-        });
+          group.appendChild(header);
+
+          if (results.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "message";
+            empty.textContent = "No PAA questions found for this keyword.";
+            group.appendChild(empty);
+          } else {
+            results.forEach((item) => {
+              const div = document.createElement("div");
+              div.className = "result-item";
+              div.innerHTML = `
+                <div class="result-question">${escapeHtml(item.question)}</div>
+                <div class="result-answer">${escapeHtml(item.answer)}</div>
+                ${item.link ? `<div class="result-link"><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.link)}</a></div>` : ""}
+              `;
+              group.appendChild(div);
+            });
+          }
+
+          list.appendChild(group);
+        }
 
         container.style.display = "block";
 
         // Success notification
-        showToast(`✅ Generated — ${data.count} questions saved to Google Sheet!`);
+        const kwCount = Object.keys(grouped).length;
+        showToast(`✅ Done — ${data.totalCount} questions across ${kwCount} keyword${kwCount > 1 ? "s" : ""} saved to Google Sheet!`);
       } catch (err) {
         list.innerHTML = `<div class="message error">Network error — is the server running?</div>`;
         badge.textContent = "Error";

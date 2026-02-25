@@ -132,10 +132,30 @@ async function fetchPAAPage(query, region, km) {
 
 // ─── Public API ─────────────────────────────────────────────
 
+const MIN_QUESTIONS = 8;
+
+/**
+ * Generate fallback queries to expand PAA results when the queue runs dry.
+ */
+function generateFallbackQueries(keyword) {
+  const prefixes = [
+    "what is", "how to", "why", "best", "how does",
+    "what are", "is it worth", "tips for", "guide to",
+  ];
+  return prefixes.map((p) => `${p} ${keyword}`);
+}
+
 /**
  * Fetch PAA questions for a **single keyword**.
+ *
+ * @param {string}      keyword
+ * @param {string}      region       - "us" | "in"
+ * @param {string}      [url]        - optional site filter
+ * @param {number}      maxQuestions  - target count (default 12)
+ * @param {Set<string>} [exclude]    - lowercased question strings to skip
+ *                                     (useful for top-up retries)
  */
-export async function getPAA(keyword, region = "us", url, maxQuestions = DEFAULT_MAX_QUESTIONS) {
+export async function getPAA(keyword, region = "us", url, maxQuestions = DEFAULT_MAX_QUESTIONS, exclude = new Set()) {
   const km = getKeyManager();
 
   if (!keyword || typeof keyword !== "string") {
@@ -143,14 +163,28 @@ export async function getPAA(keyword, region = "us", url, maxQuestions = DEFAULT
   }
 
   const query = buildQuery(keyword.trim(), url);
-  console.log(`\n🔍  Searching PAA for: "${query}" (region: ${region}, target: ${maxQuestions} questions, keys: ${km.totalKeys})`);
+  console.log(`\n🔍  Searching PAA for: "${query}" (region: ${region}, target: ${maxQuestions}, min: ${MIN_QUESTIONS}, keys: ${km.totalKeys})`);
 
-  const seen = new Set();
+  const seen = new Set(exclude); // start with excluded questions
   const results = [];
   const queue = [query];
 
+  // Prepare fallback queries in case primary queue dries up
+  const fallbacks = generateFallbackQueries(keyword.trim());
+  let fallbackIndex = 0;
+
   try {
-    while (results.length < maxQuestions && queue.length > 0) {
+    while (results.length < maxQuestions) {
+      // If primary queue is empty, try fallback queries
+      if (queue.length === 0) {
+        if (results.length >= MIN_QUESTIONS || fallbackIndex >= fallbacks.length) {
+          break;
+        }
+        const fb = fallbacks[fallbackIndex++];
+        console.log(`   ↳ Queue empty (${results.length}/${maxQuestions}), trying fallback: "${fb}"`);
+        queue.push(buildQuery(fb, url));
+      }
+
       const currentQuery = queue.shift();
       console.log(`   ↳ Querying: "${currentQuery}"`);
 
@@ -194,22 +228,3 @@ export async function getPAA(keyword, region = "us", url, maxQuestions = DEFAULT
   }
 }
 
-/**
- * Fetch PAA questions for **multiple keywords** (bulk mode).
- */
-export async function getBulkPAA(keywords, region = "us", url, maxQuestions = DEFAULT_MAX_QUESTIONS) {
-  if (!Array.isArray(keywords) || keywords.length === 0) {
-    throw new Error("❌  An array of keywords is required for bulk extraction.");
-  }
-
-  console.log(`\n📦  Bulk PAA extraction — ${keywords.length} keyword(s)\n${"─".repeat(50)}`);
-
-  const results = {};
-
-  for (const keyword of keywords) {
-    results[keyword] = await getPAA(keyword, region, url, maxQuestions);
-  }
-
-  console.log(`\n${"─".repeat(50)}\n📦  Bulk extraction complete.\n`);
-  return results;
-}
